@@ -6,3 +6,4 @@ Release 1.2
 -Fixed Bug No. 6
 -Fixed Bug No. 7
 -Fixed Bug No. 11
+-Fixed Bug No. 12

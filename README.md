@@ -1,3 +1,14 @@
+Release 1.4
+-Api for (facebook or messenger type of red notifs) numbers of notifications:
+/notifications/unreadCount
+-Function for deny request sets the priority number to null
+-Api to set urgent status:
+/maintenance-requests/{id}/mark-urgent
+-Api to set onhold:
+/maintenance-requests/{id}/mark-onhold
+-Api to set done:
+/maintenance-requests/{id}/mark-done
+
 Release 1.3
 -In user POV, details in request status can be seen in text form instead of the ID
 -In Campus Director POV, "API cannot be found" error is fixed
@@ -5,6 +16,16 @@ Release 1.3
 -Fixed Bug No. 13
 -Fixed Bug No. 15
 -Fixed Bug No. 18
+-Fixed-Email Notification about Admin who will receive email if there is a new account registering
+-Fixed-Email Notification about Requester who will receive email if the account registered is approved
+-Fixed-Email Notification about Staff who will receive email if there is service request
+-Fixed-Email Notification about Head who will receive email if there is service request
+-Fixed-Email Notification about Requester who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Head who will receive email if service requested is verified by Staff
+-Fixed-Email Notification about Requester who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Campus Admin who will receive email if service requested is approved/disapproved by Head
+-Fixed-Email Notification about Requester who will receive email if service requested already have priority number, done by staff
+-Fixed-Campus Admin can now approve after Head
 
 Release 1.2
 -Fix admin mobile hamburger menu open

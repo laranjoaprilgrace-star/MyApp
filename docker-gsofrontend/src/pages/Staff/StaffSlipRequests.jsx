@@ -97,6 +97,7 @@ const StaffSlipRequests = () => {
   const [offices, setOffices] = useState([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [showAllTab, setShowAllTab] = useState(false);
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
@@ -181,23 +182,47 @@ const StaffSlipRequests = () => {
     },
     [navigate]
   );
-const filtered = requests.filter((r) => {
-  // Show in "Approved" tab if approved_by_2 is not null
-  if (selectedTab === "Approved") {
-    return r.approved_by_2 !== null && r.approved_by_2 !== undefined;
-  }
 
-  // Only show requests where verified_by is null for other tabs
-  if (r.verified_by !== null && r.verified_by !== undefined) return false;
+  // Sort requests so that "Urgent" status requests appear first
+  const sortUrgentFirst = (arr) => {
+    return [...arr].sort((a, b) => {
+      const aUrgent = a.status_name?.toLowerCase() === "urgent";
+      const bUrgent = b.status_name?.toLowerCase() === "urgent";
+      if (aUrgent && !bUrgent) return -1;
+      if (!aUrgent && bUrgent) return 1;
+      return 0;
+    });
+  };
 
-  // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
-  if (selectedTab === "Pending") {
-    return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-  }
+  const filtered = sortUrgentFirst(requests.filter((r) => {
+    // Show in "Approved" tab if approved_by_2 is not null
+    if (selectedTab === "Approved") {
+      return r.approved_by_2 !== null && r.approved_by_2 !== undefined;
+    }
 
-  // For other tabs, match by status name and make sure not approved_by_2
-  return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-});
+    // Only show requests where verified_by is null for other tabs
+    if (r.verified_by !== null && r.verified_by !== undefined) return false;
+
+    // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
+    if (selectedTab === "Pending") {
+      return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+    }
+
+    // For other tabs, match by status name and make sure not approved_by_2
+    return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+  }));
+
+  // Helper to check if there are any "Urgent" or "Onhold" requests
+  const hasStatus = (statusName) =>
+    requests.some(
+      (r) =>
+        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
+        // Only count requests that would show in this tab (not approved_by_2 for most tabs)
+        (statusName.toLowerCase() === "approved"
+          ? r.approved_by_2 !== null && r.approved_by_2 !== undefined
+          : r.approved_by_2 === null || r.approved_by_2 === undefined)
+    );
+
   const showActions = true;
 
   const handleLogout = () => {
@@ -258,24 +283,38 @@ const filtered = requests.filter((r) => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => (
-              <button
-                key={status.id}
-                onClick={() => setSelectedTab(status.name)}
-                className={`px-4 py-2 font-semibold rounded-md ${
-                  (selectedTab === status.name) || 
-                  (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                    ? status.name === "Pending" || status.id === 1
-                      ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
-                      ? "bg-green-500 text-white"
-                      : "bg-red-500 text-white"
-                    : "bg-transparent text-gray-700"
-                }`}
-              >
-                {status.name}
-              </button>
-            ))}
+            {statuses.map((status) => {
+              const isUrgent = status.name?.toLowerCase() === "urgent";
+              const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
+              const showDot =
+                (isUrgent && hasStatus("Urgent")) ||
+                (isOnhold && hasStatus("Onhold"));
+
+              return (
+                <button
+                  key={status.id}
+                  onClick={() => { setSelectedTab(status.name); setShowAllTab(false); }}
+                  className={`relative px-4 py-2 font-semibold rounded-md ${
+                    (selectedTab === status.name && !showAllTab) ||
+                    (selectedTab === "Pending" && !showAllTab && (status.id === 1 || status.name?.toLowerCase() === "pending"))
+                      ? status.name === "Pending" || status.id === 1
+                        ? "bg-yellow-500 text-white"
+                        : status.name === "Approved"
+                        ? "bg-green-500 text-white"
+                        : "bg-red-500 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
+                >
+                  {status.name}
+                  {showDot && (
+                    <span
+                      className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"
+                      title="There are urgent/onhold requests"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <RequestsTable

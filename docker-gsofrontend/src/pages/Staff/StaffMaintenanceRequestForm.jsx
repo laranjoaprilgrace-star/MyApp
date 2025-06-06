@@ -170,8 +170,8 @@ const StaffMaintenanceRequestForm = () => {
         year = String(date.getFullYear());
       }
 
-      // Generate the priority code
-      const priorityCode = `${typeLetter}-${requestNum}-${month}-${year}`;
+      // Generate the priority code in the new format: TypeLetter-Year-Month-RequestNum
+      const priorityCode = `${typeLetter}-${year}-${month}-${requestNum}`;
 
       console.log("Generated priority code:", priorityCode);
       return priorityCode;
@@ -429,6 +429,8 @@ const StaffMaintenanceRequestForm = () => {
     return `${h.padStart(2, "0")}:${m.padStart(2, "0")}:00`;
   };
 
+  const [markAs, setMarkAs] = useState("");
+
   const handleapprove = async (e, action) => {
     e.preventDefault();
     if (action === "deny" && !remarks.trim()) {
@@ -465,6 +467,14 @@ const StaffMaintenanceRequestForm = () => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Request submission failed");
+
+      // After verification, process "Mark as" if selected
+      if (markAs === "urgent") {
+        await handleMarkUrgent();
+      } else if (markAs === "onhold") {
+        await handleMarkOnhold();
+      }
+
       navigate("/staffsliprequests");
     } catch (err) {
       setError(err.message || "An error occurred during request submission");
@@ -542,6 +552,51 @@ const StaffMaintenanceRequestForm = () => {
   }, [token, API_BASE_URL, maintenanceTypes]);
 
   const [maintenanceTypeCounts, setMaintenanceTypeCounts] = useState({});
+
+  const handleMarkUrgent = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    const response = await fetch(`${API_BASE_URL}/maintenance-requests/${id}/mark-urgent`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ remarks }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to mark as urgent");
+  } catch (err) {
+    setError(err.message || "An error occurred while marking as urgent");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Mark as Onhold handler
+const handleMarkOnhold = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    const response = await fetch(`${API_BASE_URL}/maintenance-requests/${id}/mark-onhold`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ remarks }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to mark as onhold");
+  } catch (err) {
+    setError(err.message || "An error occurred while marking as onhold");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -795,6 +850,26 @@ const StaffMaintenanceRequestForm = () => {
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Enter any remarks..."
                     />
+                  </div>
+
+                  {/* Mark as Dropdown Section */}
+                  <div>
+                    <label className="block font-semibold text-gray-700 mb-1">Mark as:</label>
+                    <select
+                      className="w-full border rounded-lg px-4 py-2"
+                      value={markAs}
+                      onChange={(e) => setMarkAs(e.target.value)}
+                      disabled={isLoading}
+                    >
+                      <option value="" disabled>
+                        Select status
+                      </option>
+                      <option value="urgent">Urgent</option>
+                      <option value="onhold">Onhold</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Choose a status to mark this request as Urgent or Onhold. This will be applied after verification.
+                    </p>
                   </div>
 
                   <div className="flex gap-4 pt-4">

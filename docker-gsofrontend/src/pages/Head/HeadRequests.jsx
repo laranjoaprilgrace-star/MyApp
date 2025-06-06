@@ -203,7 +203,12 @@ const HeadRequests = () => {
   const handleRowClick = useCallback(
     (id, status) => {
       // Consider both status name and status ID
-      const isPending = status === "Pending" || status === 1;
+      const isPending =
+        status === "Pending" ||
+        status === 1 ||
+        status?.toLowerCase() === "urgent" ||
+        status?.toLowerCase() === "onhold" ||
+        status?.toLowerCase() === "on hold";
       if (isPending) {
         navigate(`/headmaintenancerequestform/${id}`);
       } else {
@@ -223,6 +228,22 @@ const HeadRequests = () => {
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
     }
+    if (selectedTab.toLowerCase() === "urgent") {
+      // Filter for Urgent tab the same way as Pending, but for Urgent
+      return (
+        (r.status_name?.toLowerCase() === "urgent") &&
+        r.verified_by !== null && r.verified_by !== undefined &&
+        (r.approved_by_1 === null || r.approved_by_1 === undefined)
+      );
+    }
+    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
+      // Filter for Onhold tab the same way as Pending, but for Onhold/On Hold
+      return (
+        (r.status_name?.toLowerCase() === "onhold" || r.status_name?.toLowerCase() === "on hold") &&
+        r.verified_by !== null && r.verified_by !== undefined &&
+        (r.approved_by_1 === null || r.approved_by_1 === undefined)
+      );
+    }
     // For other tabs, show only requests that are verified and match the tab
     return (
       r.verified_by !== null &&
@@ -232,6 +253,15 @@ const HeadRequests = () => {
   });
 
   const showActions = true;
+
+  // Helper to check if there are any requests with a given status
+  const hasStatus = (statusName) =>
+    requests.some(
+      (r) =>
+        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
+        r.verified_by !== null &&
+        r.verified_by !== undefined
+    );
 
   if (loading) return <div className="p-4">Loading requests...</div>;
   return (
@@ -288,24 +318,38 @@ const HeadRequests = () => {
           </h2>
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => (
-              <button
-                key={status.id}
-                onClick={() => setSelectedTab(status.name)}
-                className={`px-4 py-2 font-semibold rounded-md ${
-                  (selectedTab === status.name) || 
-                  (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                    ? status.name === "Pending" || status.id === 1
-                      ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
-                      ? "bg-green-500 text-white"
-                      : "bg-red-500 text-white"
-                    : "bg-transparent text-gray-700"
-                }`}
-              >
-                {status.name}
-              </button>
-            ))}
+            {statuses.map((status) => {
+              const isUrgent = status.name?.toLowerCase() === "urgent";
+              const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
+              const showDot =
+                (isUrgent && hasStatus("Urgent")) ||
+                (isOnhold && hasStatus("Onhold"));
+
+              return (
+                <button
+                  key={status.id}
+                  onClick={() => setSelectedTab(status.name)}
+                  className={`relative px-4 py-2 font-semibold rounded-md ${
+                    (selectedTab === status.name) ||
+                    (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
+                      ? status.name === "Pending" || status.id === 1
+                        ? "bg-yellow-500 text-white"
+                        : status.name === "Approved"
+                        ? "bg-green-500 text-white"
+                        : "bg-red-500 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
+                >
+                  {status.name}
+                  {showDot && (
+                    <span
+                      className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"
+                      title="There are urgent/onhold requests"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
           <RequestsTable
             onRowClick={handleRowClick}

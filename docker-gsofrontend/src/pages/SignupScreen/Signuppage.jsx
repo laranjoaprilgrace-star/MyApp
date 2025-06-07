@@ -29,6 +29,7 @@ function SignupPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [contactWarning, setContactWarning] = useState(""); 
 
   // Memoize suffix options to prevent recreation on every render
   const suffixOptions = useMemo(() => [
@@ -38,7 +39,7 @@ function SignupPage() {
     { label: "III", value: "III" },
     { label: "IV", value: "IV" },
     { label: "V", value: "V" },
-    { label: "N/A", value: "N/A" },
+
   ], []);
 
   // Fetch dropdown data from APIs
@@ -64,6 +65,7 @@ function SignupPage() {
           { label: "Select Office", value: "", disabled: true },
           ...data.offices.map(office => ({ label: office.name, value: office.id }))
         ]);
+        console.log(data.offices);
       } catch (err) {
         setError("Failed to load form data. Please refresh the page.");
         console.error("Error fetching data:", err);
@@ -91,6 +93,12 @@ function SignupPage() {
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
+      return;
+    }
+
+    // Validate contact number format
+    if (!/^09\d{9}$/.test(contactNumber)) {
+      setError('Contact number must start with "09" and be exactly 11 digits.');
       return;
     }
 
@@ -253,6 +261,32 @@ function SignupPage() {
     </div>
   ), [ChevronDownIcon]);
 
+  // 1. Detect if selected office starts with "College of"
+  const isCollegeOffice = useMemo(() => {
+    const selectedOffice = offices.find(o => String(o.value) === String(officeId));
+    return selectedOffice && selectedOffice.label && selectedOffice.label.startsWith("College of");
+  }, [officeId, offices]);
+
+  // 2. Auto-set/reset roleId when office changes
+  useEffect(() => {
+    if (isCollegeOffice) {
+      setRoleId("4");
+    } else if (roleId === "4") {
+      setRoleId(""); // Reset if user moves away from college office
+    }
+    // eslint-disable-next-line
+  }, [isCollegeOffice, officeId]);
+
+  // 3. Filter roles for the select field
+  const filteredRoles = useMemo(() => {
+    if (isCollegeOffice) {
+      // Only show Requester (id: 4)
+      const requester = roles.find(r => String(r.value) === "4");
+      return requester ? [{ ...requester, disabled: false }] : [];
+    }
+    return roles;
+  }, [isCollegeOffice, roles]);
+
   if (isDataLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
@@ -367,9 +401,23 @@ function SignupPage() {
                     icon={PhoneIcon}
                     placeholder="Contact Number *"
                     value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, ""); // Only allow digits
+                      setContactNumber(val);
+                      if (!val.startsWith("09")) {
+                        setContactWarning('Contact number must start with "09".');
+                      } else if (val.length > 11) {
+                        setContactWarning("Contact number must be exactly 11 digits.");
+                      } else {
+                        setContactWarning("");
+                      }
+                    }}
+                    maxLength={11}
                     required
                   />
+                  {contactWarning && (
+                    <div className="text-red-500 text-xs mt-1">{contactWarning}</div>
+                  )}
                 </div>
               </div>
 
@@ -399,8 +447,9 @@ function SignupPage() {
                     icon={ShieldIcon}
                     value={roleId}
                     onChange={(e) => setRoleId(e.target.value)}
-                    options={roles}
+                    options={filteredRoles}
                     required
+                    disabled={isCollegeOffice}
                   />
                 </div>
               </div>

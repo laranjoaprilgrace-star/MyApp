@@ -38,28 +38,30 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
         <tbody>
           {requests.length > 0 ? (
             requests.map((request) => (
-              <tr key={request.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
-                <td className="p-3">{new Date(request.date_requested).toLocaleDateString()}</td>
-                <td className="p-3 font-medium">{request.personnel_fullname || "Unknown Personnel"}</td>
-                <td className="p-3">{request.position_name || "Unknown Position"}</td>
-                <td className="p-3">{request.office_name || "Unknown Office"}</td>
-                <td className="p-3">{request.maintenance_type_name || "Unknown Type"}</td>
-                <td className="p-3">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status_name === "Pending" || request.status_id === 1
-                      ? "bg-yellow-100 text-yellow-800"
-                      : request.status_name === "Approved"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}>
-                    {request.status_name}
-                  </span>
-                </td>
-                <td className="p-3">{request.contact_number}</td>
+              <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+                <td>{request.date_requested}</td>
+<td>{request.requesting_personnel}</td>
+<td>{request.position}</td>
+<td>{request.requesting_office}</td>
+<td>{request.maintenance_type}</td>
+<td>
+  <span className={`px-3 py-1 rounded-full text-sm ${
+    request.status === "Pending"
+      ? "bg-yellow-100 text-yellow-800"
+      : request.status === "Verified"
+      ? "bg-yellow-100 text-yellow-800"
+      : request.status === "Approved"
+      ? "bg-green-100 text-green-800"
+      : "bg-red-100 text-red-800"
+  }`}>
+    {request.status}
+  </span>
+</td>
+<td>{request.contact_number}</td>
                 {showActions && (
                   <td className="p-3">
                     <button
-                      onClick={() => onRowClick(request.id, request.status_name)}
+                      onClick={() => onRowClick(request.request_id, request.status)}
                       className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                     >
                       Review
@@ -91,26 +93,13 @@ const HeadRequests = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("Pending");
   const [statuses, setStatuses] = useState([]);
-  const [offices, setOffices] = useState([]);
-  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
-  const [positions, setPositions] = useState([]);
   const [usersMap, setUsersMap] = useState({});
 
   const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-  // Function to format full name from API response
-  const formatFullName = (user) => {
-    if (!user) return "Unknown User";
-    const { last_name = "", first_name = "", middle_name = "", suffix = "" } = user;
-    let formattedName = `${last_name}, ${first_name}`;
-    if (middle_name) formattedName += ` ${middle_name.charAt(0)}.`;
-    if (suffix) formattedName += ` ${suffix}`;
-    return formattedName.trim() || "Unknown User";
-  };
-  
-  // Fetch reference data (statuses, offices, maintenance types, positions) 
+  // Fetch statuses for tabs (dynamic)
   useEffect(() => {
-    const fetchReferenceData = async () => {
+    const fetchStatuses = async () => {
       if (!token) return;
       try {
         const res = await fetch(`${API_BASE_URL}/common-datas`, {
@@ -118,14 +107,11 @@ const HeadRequests = () => {
         });
         const data = await res.json();
         setStatuses(Array.isArray(data.statuses) ? data.statuses : []);
-        setOffices(Array.isArray(data.offices) ? data.offices : []);
-        setMaintenanceTypes(Array.isArray(data.maintenance_types) ? data.maintenance_types : []);
-        setPositions(Array.isArray(data.positions) ? data.positions : []);
       } catch (err) {
-        console.error("Error fetching reference data:", err);
+        console.error("Error fetching statuses:", err);
       }
     };
-    fetchReferenceData();
+    fetchStatuses();
   }, [token]);
 
   useEffect(() => {
@@ -136,10 +122,9 @@ const HeadRequests = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const users = await res.json();
-        // Build a map: user_id (number) -> user object
         const map = {};
         (Array.isArray(users.data) ? users.data : users).forEach(user => {
-          map[user.user_id] = user; // Use number key
+          map[user.user_id] = user;
         });
         setUsersMap(map);
       } catch (err) {
@@ -157,36 +142,11 @@ const HeadRequests = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/maintenance-requests`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        const list = Array.isArray(data.data) ? data.data : data;
-
-        // Enhance requests with reference data names and fullnames
-        const enhancedRequests = list.map((request) => {
-          const office = offices.find(o => o.id === request.requesting_office);
-          const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
-          const status = statuses.find(s => s.id === request.status_id);
-          const position = positions.find(p => p.id === request.position_id);
-          // Use number key for lookup
-          const personnelUser = usersMap[request.requesting_personnel];
-          const personnelFullname = formatFullName(personnelUser);
-
-          return {
-            ...request,
-            office_name: office ? office.name : 'Unknown Office',
-            maintenance_type_name: maintenancetype ? maintenancetype.type_name : 'Unknown Type',
-            status_name: status ? status.name : 'Unknown Status',
-            position_name: position ? position.name : 'Unknown Position',
-            personnel_fullname: personnelFullname
-          };
-        });
-
-        setRequests(enhancedRequests);
+        setRequests(Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []));
       } catch (err) {
         console.error(err);
         setRequests([]);
@@ -194,21 +154,20 @@ const HeadRequests = () => {
         setLoading(false);
       }
     };
-
-    if (offices.length > 0 && maintenanceTypes.length > 0 && statuses.length > 0 && positions.length > 0) {
+    if (usersMap) {
       fetchRequests();
     }
-  }, [token, navigate, offices, maintenanceTypes, statuses, positions, usersMap]);
+  }, [token, navigate, usersMap]);
 
   const handleRowClick = useCallback(
     (id, status) => {
-      // Consider both status name and status ID
       const isPending =
         status === "Pending" ||
         status === 1 ||
         status?.toLowerCase() === "urgent" ||
         status?.toLowerCase() === "onhold" ||
-        status?.toLowerCase() === "on hold";
+        status?.toLowerCase() === "on hold" ||
+        status?.toLowerCase() === "verified";
       if (isPending) {
         navigate(`/headmaintenancerequestform/${id}`);
       } else {
@@ -218,50 +177,38 @@ const HeadRequests = () => {
     [navigate]
   );
 
-  // Only show requests where verified_by is NOT null (already verified)
+  // Dynamic tab logic based on backend statuses
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      // Show only requests that are pending, verified_by is NOT null, and approved_by_1 is null
       return (
-        (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") &&
+        (r.status === "Pending") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
     }
     if (selectedTab.toLowerCase() === "urgent") {
-      // Filter for Urgent tab the same way as Pending, but for Urgent
       return (
-        (r.status_name?.toLowerCase() === "urgent") &&
+        (r.status?.toLowerCase() === "urgent") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
     }
     if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-      // Filter for Onhold tab the same way as Pending, but for Onhold/On Hold
       return (
-        (r.status_name?.toLowerCase() === "onhold" || r.status_name?.toLowerCase() === "on hold") &&
+        (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         (r.approved_by_1 === null || r.approved_by_1 === undefined)
       );
     }
-    // For other tabs, show only requests that are verified and match the tab
+    // You can add more status-specific logic here if needed
     return (
       r.verified_by !== null &&
       r.verified_by !== undefined &&
-      r.status_name === selectedTab
+      r.status === selectedTab
     );
   });
 
   const showActions = true;
-
-  // Helper to check if there are any requests with a given status
-  const hasStatus = (statusName) =>
-    requests.some(
-      (r) =>
-        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
-        r.verified_by !== null &&
-        r.verified_by !== undefined
-    );
 
   if (loading) return <div className="p-4">Loading requests...</div>;
   return (
@@ -281,7 +228,7 @@ const HeadRequests = () => {
           }`}
         >
           <nav className="py-2">
-            {HEAD_MENU_ITEMS.map((item) => ( 
+            {HEAD_MENU_ITEMS.map((item) => (
               <NavLink
                 key={item.text}
                 to={item.to}
@@ -316,40 +263,27 @@ const HeadRequests = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
             Maintenance Requests
           </h2>
-          {/* Tabs */}
+          {/* Dynamic Tabs */}
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => {
-              const isUrgent = status.name?.toLowerCase() === "urgent";
-              const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
-              const showDot =
-                (isUrgent && hasStatus("Urgent")) ||
-                (isOnhold && hasStatus("Onhold"));
-
-              return (
-                <button
-                  key={status.id}
-                  onClick={() => setSelectedTab(status.name)}
-                  className={`relative px-4 py-2 font-semibold rounded-md ${
-                    (selectedTab === status.name) ||
-                    (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                      ? status.name === "Pending" || status.id === 1
-                        ? "bg-yellow-500 text-white"
-                        : status.name === "Approved"
-                        ? "bg-green-500 text-white"
-                        : "bg-red-500 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                >
-                  {status.name}
-                  {showDot && (
-                    <span
-                      className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"
-                      title="There are urgent/onhold requests"
-                    />
-                  )}
-                </button>
-              );
-            })}
+            {statuses.map((status) => (
+              <button
+                key={status.id}
+                onClick={() => setSelectedTab(status.name)}
+                className={`relative px-4 py-2 font-semibold rounded-md ${
+                  selectedTab === status.name
+                    ? status.name === "Pending"
+                      ? "bg-yellow-500 text-white"
+                      : status.name === "Approved"
+                      ? "bg-green-500 text-white"
+                      : status.name === "Disapproved"
+                      ? "bg-red-500 text-white"
+                      : "bg-red-500 text-white"
+                    : "bg-transparent text-gray-700"
+                }`}
+              >
+                {status.name}
+              </button>
+            ))}
           </div>
           <RequestsTable
             onRowClick={handleRowClick}
@@ -361,4 +295,5 @@ const HeadRequests = () => {
     </div>
   );
 };
+
 export default HeadRequests;

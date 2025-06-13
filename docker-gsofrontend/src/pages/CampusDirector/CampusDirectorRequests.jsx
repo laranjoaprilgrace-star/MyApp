@@ -47,28 +47,28 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
         <tbody>
           {requests.length > 0 ? (
             requests.map((request) => (
-              <tr key={request.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+              <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
                 <td className="p-3">{new Date(request.date_requested).toLocaleDateString()}</td>
-                <td className="p-3 font-medium">{request.personnel_fullname || "Unknown Personnel"}</td>
-                <td className="p-3">{request.position_name || "Unknown Position"}</td>
-                <td className="p-3">{request.office_name || "Unknown Office"}</td>
-                <td className="p-3">{request.maintenance_type_name || "Unknown Type"}</td>
+                <td className="p-3 font-medium">{request.requesting_personnel || "Unknown Personnel"}</td>
+                <td className="p-3">{request.position || "Unknown Position"}</td>
+                <td className="p-3">{request.requesting_office || "Unknown Office"}</td>
+                <td className="p-3">{request.maintenance_type || "Unknown Type"}</td>
                 <td className="p-3">
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status_name === "Pending" || request.status_id === 1
+                    request.status === "Pending"
                       ? "bg-yellow-100 text-yellow-800"
-                      : request.status_name === "Approved"
+                      : request.status === "Approved"
                       ? "bg-green-100 text-green-800"
                       : "bg-red-100 text-red-800"
                   }`}>
-                    {request.status_name}
+                    {request.status}
                   </span>
                 </td>
                 <td className="p-3">{request.contact_number}</td>
                 {showActions && (
                   <td className="p-3">
                     <button
-                      onClick={() => onRowClick(request.id, request.status_name)}
+                      onClick={() => onRowClick(request.request_id, request.status)}
                       className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                     >
                       Review
@@ -166,35 +166,16 @@ const CampusDirectorRequests = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/maintenance-requests`, {
+        const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         const data = await res.json();
-        const list = Array.isArray(data.data) ? data.data : data;
-
-        // Enhance requests with reference data names and fullnames
-        const enhancedRequests = list.map((request) => {
-          const office = offices.find(o => o.id === request.requesting_office);
-          const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
-          const status = statuses.find(s => s.id === request.status_id);
-          const position = positions.find(p => p.id === request.position_id);
-          const personnelUser = usersMap[request.requesting_personnel];
-          const personnelFullname = formatFullName(personnelUser);
-
-          return {
-            ...request,
-            office_name: office ? office.name : 'Unknown Office',
-            maintenance_type_name: maintenancetype ? maintenancetype.type_name : 'Unknown Type',
-            status_name: status ? status.name : 'Unknown Status',
-            position_name: position ? position.name : 'Unknown Position',
-            personnel_fullname: personnelFullname
-          };
-        });
-
-        setRequests(enhancedRequests);
+        // Use the API fields directly
+        const list = Array.isArray(data) ? data : data.data || [];
+        setRequests(list);
       } catch (err) {
         console.error(err);
         setRequests([]);
@@ -203,10 +184,8 @@ const CampusDirectorRequests = () => {
       }
     };
 
-    if (offices.length > 0 && maintenanceTypes.length > 0 && statuses.length > 0 && positions.length > 0) {
-      fetchRequests();
-    }
-  }, [token, navigate, offices, maintenanceTypes, statuses, positions, usersMap]);
+    fetchRequests();
+  }, [token, navigate]);
 
   const handleRowClick = useCallback(
     (id, status) => {
@@ -229,34 +208,30 @@ const CampusDirectorRequests = () => {
   // Only show requests where verified_by is NOT null (already verified)
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      // Show only requests that are pending, verified_by is NOT null, and approved_by_1 is NOT null
       return (
-        (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") &&
+        (r.status === "Pending") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         r.approved_by_1 !== null && r.approved_by_1 !== undefined
       );
     }
     if (selectedTab.toLowerCase() === "urgent") {
-      // Filter for Urgent tab the same way as Pending, but for Urgent
       return (
-        (r.status_name?.toLowerCase() === "urgent") &&
+        (r.status?.toLowerCase() === "urgent") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         r.approved_by_1 !== null && r.approved_by_1 !== undefined
       );
     }
     if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
-      // Filter for Onhold tab the same way as Pending, but for Onhold/On Hold
       return (
-        (r.status_name?.toLowerCase() === "onhold" || r.status_name?.toLowerCase() === "on hold") &&
+        (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         r.approved_by_1 !== null && r.approved_by_1 !== undefined
       );
     }
-    // For other tabs, show only requests that are verified and match the tab
     return (
       r.verified_by !== null &&
       r.verified_by !== undefined &&
-      r.status_name === selectedTab
+      r.status === selectedTab
     );
   });
 

@@ -826,7 +826,7 @@ const handleMarkOnhold = async () => {
                     </div>
                     {getDisplayDetails().approved_by_2 === null || getDisplayDetails().approved_by_2 === undefined ? (
                       <p className="text-sm text-gray-500 mt-1">
-                        Priority number will be generated after the request is approved by the second approver.
+                        Priority number will be generated after the request is approved by the Campus Director.
                       </p>
                     ) : null}
                   </div>

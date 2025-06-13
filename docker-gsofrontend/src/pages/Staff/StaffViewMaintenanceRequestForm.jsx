@@ -183,16 +183,7 @@ const StaffViewMaintenanceRequestForm = () => {
                     <p className="text-slate-600">
                       Request ID: <span className="font-semibold text-slate-900">#{id}</span>
                     </p>
-                  </div>
-                  <button
-                    onClick={() => navigate("/report")}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 shadow-sm"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Back to List
-                  </button>
+                  </div>           
                 </div>
               </div>
 

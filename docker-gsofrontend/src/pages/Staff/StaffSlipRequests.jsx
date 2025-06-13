@@ -62,7 +62,14 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
                 {showActions && (
                   <td className="p-3">
                     <button
-                      onClick={() => onRowClick(request.request_id, request.status_name, request.approved_by_2)}
+                      onClick={() =>
+                        onRowClick(
+                          request.request_id,
+                          request.status_name,
+                          request.approved_by_2,
+                          request.priority_number 
+                        )
+                      }
                       className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                     >
                       Review
@@ -171,10 +178,13 @@ const StaffSlipRequests = () => {
   }, [token, navigate]);
 
   const handleRowClick = useCallback(
-    (id, status, approved_by_2) => {
+    (id, status, approved_by_2, priority_number) => {
       const isPending = status === "Pending" || status === 1;
       const isApprovedBy2 = approved_by_2 !== null && approved_by_2 !== undefined;
-      if (isPending || isApprovedBy2) {
+      const hasPriority = priority_number !== null && priority_number !== undefined;
+      if (hasPriority) {
+        navigate(`/staffviewmaintenancerequestform/${id}`);
+      } else if (isPending || isApprovedBy2) {
         navigate(`/staffmaintenancerequestform/${id}`);
       } else {
         navigate(`/staffviewmaintenancerequestform/${id}`);
@@ -195,32 +205,35 @@ const StaffSlipRequests = () => {
   };
 
   const filtered = sortUrgentFirst(requests.filter((r) => {
-    // Show in "Approved" tab if approved_by_2 is not null
-    if (selectedTab === "Approved") {
-      return r.approved_by_2 !== null && r.approved_by_2 !== undefined;
-    }
+  // Show in "Verified" tab requests where approved_by_2 is not null and priority_number is null
+  if (selectedTab === "Verified") {
+    return (
+      (r.priority_number === null || r.priority_number === undefined) &&
+      r.approved_by_2 !== null && r.approved_by_2 !== undefined
+    );
+  }
 
-    // Only show requests where verified_by is null for other tabs
-    if (r.verified_by !== null && r.verified_by !== undefined) return false;
+  // Show in "Approved" tab requests with a non-null priority_number
+  if (selectedTab === "Approved") {
+    return r.priority_number !== null && r.priority_number !== undefined;
+  }
 
-    // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
-    if (selectedTab === "Pending") {
-      return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-    }
+  // Only show requests where verified_by is null for other tabs
+  if (r.verified_by !== null && r.verified_by !== undefined) return false;
 
-    // For other tabs, match by status name and make sure not approved_by_2
-    return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
-  }));
+  // Check if selected tab is "Pending" and status is either ID 1 or name "Pending" (case insensitive)
+  if (selectedTab === "Pending") {
+    return (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+  }
 
-  // Helper to check if there are any "Urgent" or "Onhold" requests
+  // For other tabs, match by status name and make sure not approved_by_2
+  return r.status_name === selectedTab && (r.approved_by_2 === null || r.approved_by_2 === undefined);
+}));
+
+  // Helper to check if there are any "Urgent" or "Onhold" requests being displayed in the current tab
   const hasStatus = (statusName) =>
-    requests.some(
-      (r) =>
-        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
-        // Only count requests that would show in this tab (not approved_by_2 for most tabs)
-        (statusName.toLowerCase() === "approved"
-          ? r.approved_by_2 !== null && r.approved_by_2 !== undefined
-          : r.approved_by_2 === null || r.approved_by_2 === undefined)
+    filtered.some(
+      (r) => r.status_name?.toLowerCase() === statusName.toLowerCase()
     );
 
   const showActions = true;
@@ -232,6 +245,31 @@ const StaffSlipRequests = () => {
   };
 
   if (loading) return <div className="p-4">Loading requests...</div>;
+
+  // Hardcode the Verified tab after Pending, and Approved at the end
+const getTabs = (statuses) => {
+  const pendingIdx = statuses.findIndex(s => s.name?.toLowerCase() === "pending");
+  const approvedIdx = statuses.findIndex(s => s.name?.toLowerCase() === "approved");
+
+  // Remove Approved from the list
+  let reordered = statuses.filter((s, idx) => idx !== approvedIdx);
+
+  // Insert Verified after Pending
+  if (pendingIdx !== -1) {
+    reordered.splice(pendingIdx + 1, 0, { id: "verified", name: "Verified" });
+  } else {
+    reordered.unshift({ id: "verified", name: "Verified" });
+  }
+
+  // Add Approved at the end
+  if (approvedIdx !== -1) {
+    reordered.push(statuses[approvedIdx]);
+  }
+
+  return reordered;
+};
+
+const tabs = getTabs(statuses);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -274,7 +312,7 @@ const StaffSlipRequests = () => {
           onToggleSidebar={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
           menuItems={MENU_ITEMS}
           title="STAFF"
-          onLogout={handleLogout} // <-- Add this line
+          onLogout={handleLogout}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
           <h2 className="text-3xl font-extrabold text-gray-900 border-b mb-4 pb-3">
@@ -283,7 +321,7 @@ const StaffSlipRequests = () => {
 
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => {
+            {tabs.map((status) => {
               const isUrgent = status.name?.toLowerCase() === "urgent";
               const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
               const showDot =
@@ -301,6 +339,8 @@ const StaffSlipRequests = () => {
                         ? "bg-yellow-500 text-white"
                         : status.name === "Approved"
                         ? "bg-green-500 text-white"
+                        : status.name === "Verified"
+                        ? "bg-yellow-500 text-white"
                         : "bg-red-500 text-white"
                       : "bg-transparent text-gray-700"
                   }`}
@@ -318,7 +358,9 @@ const StaffSlipRequests = () => {
           </div>
 
           <RequestsTable
-  onRowClick={(id, status, approved_by_2) => handleRowClick(id, status, approved_by_2)}
+  onRowClick={(id, status, approved_by_2, priority_number) =>
+    handleRowClick(id, status, approved_by_2, priority_number)
+  }
   requests={filtered}
   showActions={showActions}
 />

@@ -52,12 +52,8 @@ const Header = memo(({
       
       <div className="flex items-center gap-4">
         <div className="hidden md:flex items-center gap-3">
-          <div className="bg-blue-800 hover:bg-blue-700 p-2 rounded-full transition-colors cursor-pointer">
-            <Icon path="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" className="w-5 h-5" />
-          </div>
           <div className="flex items-center text-sm">
-            <div className="bg-blue-500 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-2">A</div>
-            <span className="hidden lg:inline">Admin User</span>
+            <span className="hidden lg:inline">Admin </span>
           </div>
         </div>
         
@@ -152,8 +148,8 @@ const EmptyState = ({ searchTerm, statusFilter }) => {
   const isFiltered = searchTerm || statusFilter !== 'All Statuses';
   
   return (
-    <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
-      <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 text-gray-400 mb-3" />
+    <div className="flex flex-col items-center justify -center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
+     <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 text-gray-400 mb-3" />
       <div className="text-lg font-medium text-gray-600 mb-1">
         {isFiltered ? 'No matching requests found' : 'No pending requests'}
       </div>

@@ -47,28 +47,28 @@ const RequestsTable = ({ onRowClick, requests, showActions }) => (
         <tbody>
           {requests.length > 0 ? (
             requests.map((request) => (
-              <tr key={request.id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
+              <tr key={request.request_id} className="hover:bg-gray-50 even:bg-gray-50 border-b border-gray-400">
                 <td className="p-3">{new Date(request.date_requested).toLocaleDateString()}</td>
-                <td className="p-3 font-medium">{request.personnel_fullname || "Unknown Personnel"}</td>
-                <td className="p-3">{request.position_name || "Unknown Position"}</td>
-                <td className="p-3">{request.office_name || "Unknown Office"}</td>
-                <td className="p-3">{request.maintenance_type_name || "Unknown Type"}</td>
+                <td className="p-3 font-medium">{request.requesting_personnel || "Unknown Personnel"}</td>
+                <td className="p-3">{request.position || "Unknown Position"}</td>
+                <td className="p-3">{request.requesting_office || "Unknown Office"}</td>
+                <td className="p-3">{request.maintenance_type || "Unknown Type"}</td>
                 <td className="p-3">
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    request.status_name === "Pending" || request.status_id === 1
+                    request.status === "Pending"
                       ? "bg-yellow-100 text-yellow-800"
-                      : request.status_name === "Approved"
+                      : request.status === "Approved"
                       ? "bg-green-100 text-green-800"
                       : "bg-red-100 text-red-800"
                   }`}>
-                    {request.status_name}
+                    {request.status}
                   </span>
                 </td>
                 <td className="p-3">{request.contact_number}</td>
                 {showActions && (
                   <td className="p-3">
                     <button
-                      onClick={() => onRowClick(request.id, request.status_name)}
+                      onClick={() => onRowClick(request.request_id, request.status)}
                       className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg"
                     >
                       Review
@@ -166,35 +166,16 @@ const CampusDirectorRequests = () => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/maintenance-requests`, {
+        const res = await fetch(`${API_BASE_URL}/maintenance-requests/list-with-details`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         const data = await res.json();
-        const list = Array.isArray(data.data) ? data.data : data;
-
-        // Enhance requests with reference data names and fullnames
-        const enhancedRequests = list.map((request) => {
-          const office = offices.find(o => o.id === request.requesting_office);
-          const maintenancetype = maintenanceTypes.find(m => m.id === request.maintenance_type_id);
-          const status = statuses.find(s => s.id === request.status_id);
-          const position = positions.find(p => p.id === request.position_id);
-          const personnelUser = usersMap[request.requesting_personnel];
-          const personnelFullname = formatFullName(personnelUser);
-
-          return {
-            ...request,
-            office_name: office ? office.name : 'Unknown Office',
-            maintenance_type_name: maintenancetype ? maintenancetype.type_name : 'Unknown Type',
-            status_name: status ? status.name : 'Unknown Status',
-            position_name: position ? position.name : 'Unknown Position',
-            personnel_fullname: personnelFullname
-          };
-        });
-
-        setRequests(enhancedRequests);
+        // Use the API fields directly
+        const list = Array.isArray(data) ? data : data.data || [];
+        setRequests(list);
       } catch (err) {
         console.error(err);
         setRequests([]);
@@ -203,15 +184,18 @@ const CampusDirectorRequests = () => {
       }
     };
 
-    if (offices.length > 0 && maintenanceTypes.length > 0 && statuses.length > 0 && positions.length > 0) {
-      fetchRequests();
-    }
-  }, [token, navigate, offices, maintenanceTypes, statuses, positions, usersMap]);
+    fetchRequests();
+  }, [token, navigate]);
 
   const handleRowClick = useCallback(
     (id, status) => {
       // Consider both status name and status ID
-      const isPending = status === "Pending" || status === 1;
+      const isPending =
+        status === "Pending" ||
+        status === 1 ||
+        status?.toLowerCase() === "urgent" ||
+        status?.toLowerCase() === "onhold" ||
+        status?.toLowerCase() === "on hold";
       if (isPending) {
         navigate(`/campusdirectormaintenancerequestform/${id}`);
       } else {
@@ -224,22 +208,45 @@ const CampusDirectorRequests = () => {
   // Only show requests where verified_by is NOT null (already verified)
   const filtered = requests.filter((r) => {
     if (selectedTab === "Pending") {
-      // Show only requests that are pending, verified_by is NOT null, and approved_by_1 is NOT null
       return (
-        (r.status_id === 1 || r.status_name?.toLowerCase() === "pending") &&
+        (r.status === "Pending") &&
         r.verified_by !== null && r.verified_by !== undefined &&
         r.approved_by_1 !== null && r.approved_by_1 !== undefined
       );
     }
-    // For other tabs, show only requests that are verified and match the tab
+    if (selectedTab.toLowerCase() === "urgent") {
+      return (
+        (r.status?.toLowerCase() === "urgent") &&
+        r.verified_by !== null && r.verified_by !== undefined &&
+        r.approved_by_1 !== null && r.approved_by_1 !== undefined
+      );
+    }
+    if (selectedTab.toLowerCase() === "onhold" || selectedTab.toLowerCase() === "on hold") {
+      return (
+        (r.status?.toLowerCase() === "onhold" || r.status?.toLowerCase() === "on hold") &&
+        r.verified_by !== null && r.verified_by !== undefined &&
+        r.approved_by_1 !== null && r.approved_by_1 !== undefined
+      );
+    }
     return (
       r.verified_by !== null &&
       r.verified_by !== undefined &&
-      r.status_name === selectedTab
+      r.status === selectedTab
     );
   });
 
   const showActions = true;
+
+  // Helper to check if there are any requests with a given status for the tab
+  const hasStatus = (statusName) =>
+    requests.some(
+      (r) =>
+        r.status_name?.toLowerCase() === statusName.toLowerCase() &&
+        r.verified_by !== null &&
+        r.verified_by !== undefined &&
+        r.approved_by_1 !== null &&
+        r.approved_by_1 !== undefined
+    );
 
   if (loading) return <div className="p-4">Loading requests...</div>;
 
@@ -296,24 +303,38 @@ const CampusDirectorRequests = () => {
           </h2>
           {/* Tabs */}
           <div className="flex space-x-4 mb-6">
-            {statuses.map((status) => (
-              <button
-                key={status.id}
-                onClick={() => setSelectedTab(status.name)}
-                className={`px-4 py-2 font-semibold rounded-md ${
-                  (selectedTab === status.name) || 
-                  (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
-                    ? status.name === "Pending" || status.id === 1
-                      ? "bg-yellow-500 text-white"
-                      : status.name === "Approved"
-                      ? "bg-green-500 text-white"
-                      : "bg-red-500 text-white"
-                    : "bg-transparent text-gray-700"
-                }`}
-              >
-                {status.name}
-              </button>
-            ))}
+            {statuses.map((status) => {
+              const isUrgent = status.name?.toLowerCase() === "urgent";
+              const isOnhold = status.name?.toLowerCase() === "onhold" || status.name?.toLowerCase() === "on hold";
+              const showDot =
+                (isUrgent && hasStatus("Urgent")) ||
+                (isOnhold && hasStatus("Onhold"));
+
+              return (
+                <button
+                  key={status.id}
+                  onClick={() => setSelectedTab(status.name)}
+                  className={`relative px-4 py-2 font-semibold rounded-md ${
+                    (selectedTab === status.name) ||
+                    (selectedTab === "Pending" && (status.id === 1 || status.name?.toLowerCase() === "pending"))
+                      ? status.name === "Pending" || status.id === 1
+                        ? "bg-yellow-500 text-white"
+                        : status.name === "Approved"
+                        ? "bg-green-500 text-white"
+                        : "bg-red-500 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
+                >
+                  {status.name}
+                  {showDot && (
+                    <span
+                      className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"
+                      title="There are urgent/onhold requests"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
           <RequestsTable
             onRowClick={handleRowClick}

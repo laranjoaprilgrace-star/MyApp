@@ -7,7 +7,7 @@ Release 1.9:
 -there is remarks if head will deny request,
 -no need for campus director to receive email after verified, only after approval,
 -fix construction of sentence,
-- graph that shows when is the peak of service is seen,
+-graph that shows when is the peak of service is seen,
 -user can feedback after service is done,
 -two date in feedback (date for when is the feedback done and date when was the work done)
 

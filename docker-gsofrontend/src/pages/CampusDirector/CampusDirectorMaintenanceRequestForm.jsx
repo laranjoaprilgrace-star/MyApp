@@ -169,7 +169,8 @@ const CampusDirectorMaintenanceRequestForm = () => {
       return;
     }
 
-    if (!approvedBy1) {
+    const isHeadRequester = requestDetails.requester_role_id === 2;
+    if (!approvedBy1 && !isHeadRequester) {
       setError("You cannot approve this request until Head 1 has approved it.");
       return;
     }
@@ -221,6 +222,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
   };
 
   const isDirectorVerified = Boolean(requestDetails.verified_by_director);
+  const isHeadRequester = requestDetails.requester_role_id === 2;
   const alreadyApproved = approvedById === DIRECTOR_ID && isDirectorVerified;
 
   const buttonText = alreadyApproved
@@ -372,6 +374,13 @@ const CampusDirectorMaintenanceRequestForm = () => {
                         />
                       </div>
                     )}
+                    {isHeadRequester && !requestDetails.approved_by_1 && (
+                      <div className="md:col-span-2">
+                        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                          Head approval skipped (requester is a Head).
+                        </p>
+                      </div>
+                    )}
                     {/* Only show Approved By 2 if present */}
                     {requestDetails.approved_by_2 && (
                       <div>
@@ -491,7 +500,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                   <div className="flex gap-4 pt-4">
                     <button
                       type="submit"
-                      disabled={alreadyApproved || !approvedBy1}
+                      disabled={alreadyApproved || (!approvedBy1 && !isHeadRequester)}
                       className={`flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors`}
                     >
                       {buttonText}
@@ -499,7 +508,7 @@ const CampusDirectorMaintenanceRequestForm = () => {
                     <button
                       type="button"
                       onClick={(e) => handleDecision(e, "deny")}
-                      disabled={alreadyApproved || !approvedBy1}
+                      disabled={alreadyApproved || (!approvedBy1 && !isHeadRequester)}
                       className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
                     >
                       Deny

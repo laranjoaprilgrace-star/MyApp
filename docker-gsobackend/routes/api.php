@@ -13,6 +13,7 @@ use App\Http\Controllers\OfficeController;
 use App\Http\Controllers\StatusController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ScheduleEventController;
 
 use App\Models\MaintenanceType;
 
@@ -78,6 +79,14 @@ Route::middleware(['auth:sanctum'])->put('/maintenance-requests/{id}/view', [Mai
 
 //for schedules
 Route::middleware(['auth:sanctum'])->get('/schedules', [MaintenanceRequestController::class, 'getSchedules']);
+
+//shared schedule events
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/schedule-events', [ScheduleEventController::class, 'index']);
+    Route::post('/schedule-events', [ScheduleEventController::class, 'store']);
+    Route::put('/schedule-events/{id}', [ScheduleEventController::class, 'update']);
+    Route::delete('/schedule-events/{id}', [ScheduleEventController::class, 'destroy']);
+});
 
 //getfullname
 Route::get('/users/{id}/fullname', [UserController::class, 'getFullName'])
@@ -213,8 +222,6 @@ Route::get('/statusesPovHead', [StatusController::class, 'statusesPovHead']);
 
 
 Route::get('/generate-priority-number/{maintenanceTypeId}', [MaintenanceRequestController::class, 'generatePriorityNumber']);
-
-
 
 
 

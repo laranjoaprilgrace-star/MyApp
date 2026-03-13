@@ -65,6 +65,7 @@ class UserController extends Controller
         foreach ($adminUsers as $admin) {
             SystemNotification::create([
                 'user_id' => $admin->id,
+                'reference_id' => $user->id,
                 'type' => 'account_request_created',
                 'message' =>  $user->first_name . ' ' . $user->last_name  . ' registered an account and is waiting for approval.',//notify the admin
                 'is_read' => false,
@@ -96,7 +97,13 @@ class UserController extends Controller
         }
 
         if ($user->status_id == 3) { // 3 = Disapproved
-            return response()->json(['message' => 'Your account was disapproved. Contact admin.'], 403);
+            $message = 'Your account was disapproved.';
+            if ($user->rejection_reason) {
+                $message .= ' Reason: ' . $user->rejection_reason;
+            } else {
+                $message .= ' Contact admin.';
+            }
+            return response()->json(['message' => $message], 403);
         }
 
         $token = $user->createToken('authToken')->plainTextToken;
@@ -137,6 +144,10 @@ class UserController extends Controller
         }
 
         $user->status_id = $request->status_id;
+        if ($request->status_id == 2) {
+            $user->rejection_reason = null;
+            $user->rejected_at = null;
+        }
         $user->save();
 
         // Send email notification only if approved
@@ -151,6 +162,7 @@ class UserController extends Controller
     {
         $request->validate([
             'status_id' => 'required|exists:statuses,id',
+            'rejection_reason' => 'required|string|max:1000',
         ]);
 
         $user = User::find($id);
@@ -166,6 +178,8 @@ class UserController extends Controller
         }
 
         $user->status_id = $request->status_id;
+        $user->rejection_reason = $request->rejection_reason;
+        $user->rejected_at = now();
         $user->save();
 
         // Send email notification only if approved
@@ -173,7 +187,15 @@ class UserController extends Controller
         //     $user->notify(new AccountApproved());
         // }
 
-        return response()->json(['message' => 'User register dissapved successfully.']);
+        SystemNotification::create([
+            'user_id' => $user->id,
+            'reference_id' => $user->id,
+            'type' => 'account_request_rejected',
+            'message' => 'Your account request was rejected. Reason: ' . $request->rejection_reason,
+            'is_read' => false,
+        ]);
+
+        return response()->json(['message' => 'User register disapproved successfully.']);
     }
 
 
@@ -265,14 +287,18 @@ class UserController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        $user->load(['position', 'office']);
+
         return response()->json([
             'user_id' => $user->id,
             'last_name' => $user->last_name,
             'first_name'=> $user->first_name,
             'middle_name'=> $user->middle_name,
             'suffix'=> $user->suffix,
-            'position_id' => $user->position,
-            'office_id' => $user->office, // Adjust based on your DB column name
+            'position_id' => $user->position_id,
+            'position' => optional($user->position)->name,
+            'office_id' => $user->office_id, // Adjust based on your DB column name
+            'office' => optional($user->office)->name,
             'contact_number' => $user->contact_number
         ], 200);
     }
@@ -454,4 +480,3 @@ class UserController extends Controller
     }
 
 }
-

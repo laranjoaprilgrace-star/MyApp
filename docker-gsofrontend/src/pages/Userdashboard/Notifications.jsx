@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useState, memo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon';
 import { Sidebar, MENU_ITEMS } from '../../components/Sidebar';
 
@@ -70,19 +70,10 @@ const Header = memo(({ isMobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }
 const DashboardContent = memo(() => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-
-    // Mark all notifications as read when the page is opened
-    fetch(`${API_BASE_URL}/notifications/markAllAsRead`, {
-      method: "PUT",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-      }
-    }).catch(() => {});
 
     // Fetch notifications
     fetch(`${API_BASE_URL}/notifications`, {
@@ -98,6 +89,49 @@ const DashboardContent = memo(() => {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  const maintenanceTypes = new Set([
+    'maintenance_verified',
+    'maintenance_request_approved_by_head',
+    'maintenance_request_approved_by_campus_director',
+    'maintenance_request_denied',
+    'maintenance_request_disapproved',
+    'maintenance_request_completely_approved',
+    'maintenance_request_done',
+    'maintenance_request_urgent',
+    'maintenance_request_onhold',
+    'maintenance_request_scheduled'
+  ]);
+
+  const getTargetPath = (notif) => {
+    if (!notif.reference_id) return null;
+    if (maintenanceTypes.has(notif.type)) {
+      return `/viewmaintenancerequestform/${notif.reference_id}`;
+    }
+    return null;
+  };
+
+  const handleRead = async (notif) => {
+    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    try {
+      if (!notif.is_read) {
+        await fetch(`${API_BASE_URL}/notifications/markAsRead/${notif.id}`, {
+          method: "PUT",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          }
+        });
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+        );
+      }
+    } finally {
+      const target = getTargetPath(notif);
+      if (target) navigate(target);
+    }
+  };
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white/95 backdrop-blur-sm overflow-y-auto">
@@ -121,11 +155,15 @@ const DashboardContent = memo(() => {
                   </div>
                 </div>
                 <div className="mt-2 md:mt-0">
-                  <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
-                    notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}>
-                    {notif.is_read ? 'Read' : 'Unread'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRead(notif)}
+                    className={`inline-block px-3 py-1 text-xs rounded-full font-medium shadow-sm ${
+                      notif.is_read ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {notif.is_read ? 'View' : 'Read'}
+                  </button>
                 </div>
               </li>
             ))}

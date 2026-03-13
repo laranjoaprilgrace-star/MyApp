@@ -134,14 +134,6 @@ const HeadRequests = () => {
     fetchUsers();
   }, [token]);
 
-  const getRequesterRoleId = (request) => {
-    if (request.requester_role_id !== undefined && request.requester_role_id !== null) {
-      return request.requester_role_id;
-    }
-    const mappedUser = usersMap[request.requester_id];
-    return mappedUser ? mappedUser.role_id : null;
-  };
-
   useEffect(() => {
     if (!token) {
       navigate("/loginpage");
@@ -187,8 +179,6 @@ const HeadRequests = () => {
 
   // Dynamic tab logic based on backend statuses
   const filtered = requests.filter((r) => {
-    const isHeadRequester = getRequesterRoleId(r) === 2;
-    if (isHeadRequester) return false;
     if (selectedTab === "Pending") {
       return (
         (r.status === "Pending") &&
